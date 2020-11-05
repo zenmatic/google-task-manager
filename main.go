@@ -2,6 +2,7 @@ package main
 
 import (
         "encoding/json"
+        "errors"
         "fmt"
         "io/ioutil"
         "log"
@@ -69,6 +70,26 @@ func saveToken(path string, token *oauth2.Token) {
         json.NewEncoder(f).Encode(token)
 }
 
+func getIdFromName(srv *tasks.Service, name string) (string, error) {
+
+        r, err := srv.Tasklists.List().MaxResults(10).Do()
+        if err != nil {
+                return "", err
+        }
+
+        fmt.Println("Task Lists:")
+        if len(r.Items) > 0 {
+                for _, i := range r.Items {
+                        fmt.Printf("%s (%s)\n", i.Title, i.Id)
+                        if i.Title == name {
+                                return i.Id, nil
+                        }
+                }
+        }
+
+        return "", errors.New("no matching list")
+}
+
 func main() {
         b, err := ioutil.ReadFile("credentials.json")
         if err != nil {
@@ -87,17 +108,10 @@ func main() {
                 log.Fatalf("Unable to retrieve tasks Client %v", err)
         }
 
-        r, err := srv.Tasklists.List().MaxResults(10).Do()
+        lname := "A list"
+        id, err := getIdFromName(srv, lname)
         if err != nil {
-                log.Fatalf("Unable to retrieve task lists. %v", err)
+                log.Fatalf("Unable to find task list '%v': %v", lname, err)
         }
-
-        fmt.Println("Task Lists:")
-        if len(r.Items) > 0 {
-                for _, i := range r.Items {
-                        fmt.Printf("%s (%s)\n", i.Title, i.Id)
-                }
-        } else {
-                fmt.Print("No task lists found.")
-        }
+        fmt.Printf("found %v for '%v'\n", id, lname)
 }
