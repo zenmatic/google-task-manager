@@ -15,6 +15,12 @@ import (
         "google.golang.org/api/tasks/v1"
 )
 
+const (
+        DefaultListName = "Default List"
+        TasklistsMaxResults = 10
+        TasksMaxResults = 100
+)
+
 // Retrieve a token, saves the token, then returns the generated client.
 func getClient(config *oauth2.Config) *http.Client {
         // The file token.json stores the user's access and refresh tokens, and is
@@ -72,7 +78,7 @@ func saveToken(path string, token *oauth2.Token) {
 
 func getIdFromName(srv *tasks.Service, name string) (string, error) {
 
-        r, err := srv.Tasklists.List().MaxResults(10).Do()
+        r, err := srv.Tasklists.List().MaxResults(TasklistsMaxResults).Do()
         if err != nil {
                 return "", err
         }
@@ -88,6 +94,23 @@ func getIdFromName(srv *tasks.Service, name string) (string, error) {
         }
 
         return "", errors.New("no matching list")
+}
+
+func listTasksInTasklist(srv *tasks.Service, tasklistId string) error {
+
+        r, err := srv.Tasks.List(tasklistId).MaxResults(TasksMaxResults).Do()
+        if err != nil {
+                return err
+        }
+
+        fmt.Printf("Tasks in %v Lists:", tasklistId)
+        if len(r.Items) > 0 {
+                for _, i := range r.Items {
+                        fmt.Printf("%s (%s)\n", i.Title, i.Id)
+                }
+        }
+
+        return nil
 }
 
 func main() {
@@ -114,4 +137,5 @@ func main() {
                 log.Fatalf("Unable to find task list '%v': %v", lname, err)
         }
         fmt.Printf("found %v for '%v'\n", id, lname)
+        listTasksInTasklist(srv, id)
 }
