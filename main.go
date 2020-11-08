@@ -127,6 +127,29 @@ func listTasksInTasklist(srv *tasks.Service, tasklistId string, tasklistName str
         return nil
 }
 
+func moveTasksFromListToList(srv *tasks.Service, fromListId string, toListId string) error {
+        r, err := srv.Tasks.List(fromListId).MaxResults(TasksMaxResults).Do()
+        if err != nil {
+                return err
+        }
+
+        if len(r.Items) > 0 {
+                for _, i := range r.Items {
+                        fmt.Printf("moving %s\n", i.Title)
+                        _, err := srv.Tasks.Insert(toListId, i).Do()
+                        if err != nil {
+                                return err
+                        }
+                        err = srv.Tasks.Delete(fromListId, i.Id).Do()
+                        if err != nil {
+                                return err
+                        }
+                }
+        }
+
+        return nil
+}
+
 func main() {
 
         b, err := ioutil.ReadFile("credentials.json")
@@ -164,23 +187,40 @@ func main() {
                         log.Fatalf("Unable to list task lists: %v", err)
                 }
         } else if len(args) > 3 && strings.HasPrefix(cmd, "list tasks in ") {
-                // TODO list tasks in "tasklist name"
+                // list tasks in "tasklist name"
                 tasklistName := strings.Join(args[3:], " ")
                 id, err := getIdFromName(srv, tasklistName)
                 if err != nil {
                         log.Fatalf("Unable to find task list '%v': %v", tasklistName, err)
                 }
                 listTasksInTasklist(srv, id, tasklistName)
-        }
-        /*
-        } else {
-                n, err := fmt.Sscanf(cmd, `move tasks from "%s" to "%s"`, &srcTasklist, &dstTasklist)
-                if (err != nil) {
-                        log.Fatalf("Unable to parse arguments: %v", cmd)
+        } else if len(args) > 5 && strings.HasPrefix(cmd, "move tasks from") {
+                // move tasks from "A list" to "Default list"
+                var fromList, toList, buf []string
+                for _, word := range args[3:] {
+                        if word == "to" {
+                                fromList = buf
+                                buf = []string{}
+                        } else {
+                                buf = append(buf, word)
+                        }
                 }
-                if (n == 2) {
-                        // move tasks
+                toList = buf
+                fromListName := strings.Join(fromList, " ")
+                toListName := strings.Join(toList, " ")
+                fromListId, err := getIdFromName(srv, fromListName)
+                if err != nil {
+                        log.Fatalf("Unable to find task list '%v': %v", fromListId, err)
+                }
+                toListId, err := getIdFromName(srv, toListName)
+                if err != nil {
+                        log.Fatalf("Unable to find task list '%v': %v", toListName, err)
+                }
+                fmt.Printf("from: %v, to: %v\n", fromListId, toListId)
+
+                err = moveTasksFromListToList(srv, fromListId, toListId)
+                if err != nil {
+                        log.Fatalf("Unable to move tasks from %v to %v: %v", fromListName, toListName, err)
                 }
         }
-        */
 }
